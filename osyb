@@ -1,0 +1,198 @@
+#!/bin/bash -e
+
+echo "GROUPS: $(groups)"
+echo "HOME: ${HOME}"
+echo "ID: $(id)"
+echo "GIT_SSH_COMMAND: ${GIT_SSH_COMMAND}"
+echo "PASSWD FILE: $(grep osyb /etc/passwd)"
+echo "GROUP FILE: $(grep osyb /etc/group)"
+echo "OSYB_GIT_REPO: ${OSYB_GIT_REPO}"
+echo "OSYB_GIT_URL: ${OSYB_GIT_URL}"
+echo
+
+validation() {
+  if [[ -z "${OSYB_GIT_REPO}" || -z "${OSYB_GIT_URL}" ]]; then
+      echo "OSYB_GIT_REPO or OSYB_GIT_URL is empty"
+      exit 1
+  fi
+
+  if [ -z "${OSYB_GIT_BRANCH}" ]; then
+    echo "OSYB_GIT_BRANCH should not be empty"
+    exit 1
+  fi
+}
+
+helper_sort_uniq() {
+  sed -e '1d' | awk '{ print $1 }' | sort | uniq
+}
+
+resources() {
+  oc get "${1}" -o=jsonpath="{.items[*]['metadata.name']}"
+}
+
+variables() {
+  readonly OSYB_START_TIME=$(date +"%T")
+
+  echo "Getting projects..."
+  readonly PROJECTS=$(resources projects)
+  echo "PROJECTS: ${PROJECTS}"
+  echo
+
+  echo "Getting namespaced resources..."
+  readonly NAMESPACED_RESOURCES=$(oc api-resources --namespaced=true |\
+    awk '{print $1}' |\
+    grep -v ^events$ |\
+    grep -v ^images$ |\
+    grep -v ^jobs$ |\
+    grep -v ^packagemanifests$ |\
+    grep -v ^pods$ |\
+    helper_sort_uniq)
+  echo "NAMESPACED_RESOURCES ${NAMESPACED_RESOURCES}"
+  echo
+
+  echo "Getting non-namespaced resources..."
+  readonly NON_NAMESPACED_RESOURCES=$(oc api-resources --namespaced=false |\
+    awk '{print $1}' |\
+    grep -v ^certificatesigningrequests$ |\
+    grep -v ^images$ |\
+    helper_sort_uniq)
+  echo "NON_NAMESPACED_RESOURCES ${NON_NAMESPACED_RESOURCES}"
+  echo
+}
+
+cdgitrepo() {
+  echo -e "Navigating to OSYB_GIT_REPO: ${OSYB_GIT_REPO}\n"
+  cd "${OSYB_GIT_REPO}"
+  git checkout $OSYB_GIT_BRANCH
+  echo -e "Current Working Directory: ${PWD} and branch: ${OSYB_GIT_BRANCH}\n"
+}
+
+gitrepo() {
+  echo -e "Checking whether git repository: ${OSYB_GIT_REPO} has been cloned\n"
+  [ -d "${OSYB_GIT_REPO}" ] || git clone "${OSYB_GIT_URL}" "${OSYB_GIT_REPO}"
+  ls "${OSYB_GIT_REPO}"
+  cdgitrepo
+  git config user.name osyb
+  git config user.email osyb@osyb.osyb
+  git rm -r '*.yaml' --ignore-unmatch
+}
+
+nonnamespaced() {
+  echo "Backing up all nonnamespaced..."
+  for nnr in ${NON_NAMESPACED_RESOURCES}; do
+    echo "Creating '${nnr}' dir if it does not exist..."
+    [ -d "${nnr}" ] || mkdir -p "${nnr}"
+    for r in $(resources "${nnr}"); do
+      echo -e "---" > "${nnr}/${r}.yaml"
+      oc get "${nnr}" "${r}" -o=yaml >> "${nnr}/${r}.yaml" || true
+    done
+  done
+}
+
+projects() {
+  echo -e "\nBacking up all projects..."
+  for p in ${PROJECTS}; do
+    echo "Creating 'projects/${p}' dir if it does not exist..."
+    [ -d "projects/${p}" ] || mkdir -p "projects/${p}"
+    oc project "${p}" 
+
+    for nr in ${NAMESPACED_RESOURCES}; do
+      echo "Creating 'projects/${p}/${nr}' dir if it does not exist..."
+      [ -d "projects/${p}/${nr}" ] || mkdir -p "projects/${p}/${nr}"
+
+      for r in $(resources "${nr}"); do
+        echo -e "---" > "projects/${p}/${nr}/${r}.yaml"
+        oc get "${nr}" "${r}" -o=yaml >> "projects/${p}/${nr}/${r}.yaml" || true
+      done
+    done
+  done
+}
+
+helper_falsepositives() {
+  echo "Removing '${1}' false positives in: '${2}'..."
+  if grep -q "${3}" "${2}"; then
+    grep -c "${3}" "${2}"
+    echo "yq d -i ${2} ${1}"
+    yq d -i "${2}" "${1}"
+    echo -e "Done false-positives: ${2}"
+  fi
+}
+
+falsepositives() {
+  cdgitrepo
+
+  local files
+  files=$(find "${OSYB_GIT_REPO}" -name '*.yaml' -type f ! -empty)
+
+  for f in $files; do
+    helper_falsepositives "metadata.creationTimestamp" "${f}" "creationTimestamp:"
+    helper_falsepositives "metadata.generation" "${f}" "generation:"
+    helper_falsepositives "metadata.managedFields.[*].time" "${f}" "time:"
+    helper_falsepositives "metadata.resourceVersion" "${f}" "resourceVersion:"
+    helper_falsepositives "metadata.selfLink" "${f}" "selfLink:"
+    helper_falsepositives "metadata.uid" "${f}" "uid:"
+    helper_falsepositives "spec.renewTime" "${f}" "renewTime:"
+    helper_falsepositives "status" "${f}" "status:"
+
+    echo "False-positives stage completed for: ${f}"
+  done
+}
+
+gitsecret() {
+  if test -n "$(git status --porcelain projects/*/secrets/*.yaml)"; then
+    echo "Git-secret changes found. Adding them to git..."
+    git secret add projects/*/secrets/*.yaml 
+    git secret hide -m -d -F
+    git add projects/*/secrets/*.yaml.secret
+    git add .gitignore .gitsecret/
+  else
+    echo "No git-secret changes"
+  fi
+}
+
+preserve() {
+  cdgitrepo
+
+  git pull origin "${OSYB_GIT_BRANCH}"
+  gitsecret
+  git add .
+
+  if test -n "$(git status --porcelain)"; then
+    echo "Changes found. Adding and pushing them to git..."
+    git commit -m "Backup OpenShift YAML. Started: ${OSYB_START_TIME}. Duration: $((${SECONDS} / 60)) minutes."
+    git push origin "${OSYB_GIT_BRANCH}"
+  else
+    echo "No changes"
+  fi
+}
+
+emptycheck() {
+  cdgitrepo
+  if [[ $(find . -name '*.yaml' -type f -empty | wc -l) -ne 0 ]]; then
+    echo "Some YAML files are empty"
+    exit 1
+  fi
+}
+
+yamlcheck() {
+  local conf=/tmp/yamllintconf
+
+  cdgitrepo
+  echo -e "\nRunning yamllint..."
+  echo -e "rules:\n  line-length: disable\n  indentation: disable" > $conf
+  yamllint -c $conf .
+}
+
+main() {
+  validation
+  variables
+  gitrepo
+  projects
+  nonnamespaced
+  falsepositives
+  emptycheck
+  yamlcheck
+  preserve
+}
+
+main
