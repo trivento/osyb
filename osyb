@@ -12,8 +12,8 @@ echo
 
 validation() {
   if [[ -z "${OSYB_GIT_REPO}" || -z "${OSYB_GIT_URL}" ]]; then
-      echo "OSYB_GIT_REPO or OSYB_GIT_URL is empty"
-      exit 1
+    echo "OSYB_GIT_REPO or OSYB_GIT_URL is empty"
+    exit 1
   fi
 
   if [ -z "${OSYB_GIT_BRANCH}" ]; then
@@ -39,22 +39,22 @@ variables() {
   echo
 
   echo "Getting namespaced resources..."
-  readonly NAMESPACED_RESOURCES=$(oc api-resources --namespaced=true |\
-    awk '{print $1}' |\
-    grep -v ^events$ |\
-    grep -v ^images$ |\
-    grep -v ^jobs$ |\
-    grep -v ^packagemanifests$ |\
-    grep -v ^pods$ |\
+  readonly NAMESPACED_RESOURCES=$(oc api-resources --namespaced=true |
+    awk '{print $1}' |
+    grep -v ^events$ |
+    grep -v ^images$ |
+    grep -v ^jobs$ |
+    grep -v ^packagemanifests$ |
+    grep -v ^pods$ |
     helper_sort_uniq)
   echo "NAMESPACED_RESOURCES ${NAMESPACED_RESOURCES}"
   echo
 
   echo "Getting non-namespaced resources..."
-  readonly NON_NAMESPACED_RESOURCES=$(oc api-resources --namespaced=false |\
-    awk '{print $1}' |\
-    grep -v ^certificatesigningrequests$ |\
-    grep -v ^images$ |\
+  readonly NON_NAMESPACED_RESOURCES=$(oc api-resources --namespaced=false |
+    awk '{print $1}' |
+    grep -v ^certificatesigningrequests$ |
+    grep -v ^images$ |
     helper_sort_uniq)
   echo "NON_NAMESPACED_RESOURCES ${NON_NAMESPACED_RESOURCES}"
   echo
@@ -83,8 +83,8 @@ nonnamespaced() {
     echo "Creating '${nnr}' dir if it does not exist..."
     [ -d "${nnr}" ] || mkdir -p "${nnr}"
     for r in $(resources "${nnr}"); do
-      echo -e "---" > "${nnr}/${r}.yaml"
-      oc get "${nnr}" "${r}" -o=yaml >> "${nnr}/${r}.yaml" || true
+      echo -e "---" >"${nnr}/${r}.yaml"
+      oc get "${nnr}" "${r}" -o=yaml >>"${nnr}/${r}.yaml" || true
     done
   done
 }
@@ -94,15 +94,15 @@ projects() {
   for p in ${PROJECTS}; do
     echo "Creating 'projects/${p}' dir if it does not exist..."
     [ -d "projects/${p}" ] || mkdir -p "projects/${p}"
-    oc project "${p}" 
+    oc project "${p}"
 
     for nr in ${NAMESPACED_RESOURCES}; do
       echo "Creating 'projects/${p}/${nr}' dir if it does not exist..."
       [ -d "projects/${p}/${nr}" ] || mkdir -p "projects/${p}/${nr}"
 
       for r in $(resources "${nr}"); do
-        echo -e "---" > "projects/${p}/${nr}/${r}.yaml"
-        oc get "${nr}" "${r}" -o=yaml >> "projects/${p}/${nr}/${r}.yaml" || true
+        echo -e "---" >"projects/${p}/${nr}/${r}.yaml"
+        oc get "${nr}" "${r}" -o=yaml >>"projects/${p}/${nr}/${r}.yaml" || true
       done
     done
   done
@@ -141,7 +141,7 @@ falsepositives() {
 gitsecret() {
   if test -n "$(git status --porcelain projects/*/secrets/*.yaml)"; then
     echo "Git-secret changes found. Adding them to git..."
-    git secret add projects/*/secrets/*.yaml 
+    git secret add projects/*/secrets/*.yaml
     git secret hide -m -d -F
     git add projects/*/secrets/*.yaml.secret
     git add .gitignore .gitsecret/
@@ -160,7 +160,19 @@ preserve() {
   if test -n "$(git status --porcelain)"; then
     echo "Changes found. Adding and pushing them to git..."
     git commit -m "Backup OpenShift YAML. Started: ${OSYB_START_TIME}. Duration: $((${SECONDS} / 60)) minutes."
-    git push origin "${OSYB_GIT_BRANCH}"
+
+    RETRIES=10
+    COUNT=0
+    while [ $COUNT -lt $RETRIES ]; do
+      if git push origin "${OSYB_GIT_BRANCH}"; then
+        echo hello
+        break
+      else
+        echo world
+      fi
+      let COUNT=$COUNT+1
+      sleep 60
+    done
   else
     echo "No changes"
   fi
@@ -179,7 +191,7 @@ yamlcheck() {
 
   cdgitrepo
   echo -e "\nRunning yamllint..."
-  echo -e "rules:\n  line-length: disable\n  indentation: disable" > $conf
+  echo -e "rules:\n  line-length: disable\n  indentation: disable" >$conf
   yamllint -c $conf .
 }
 
