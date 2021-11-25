@@ -165,10 +165,10 @@ preserve() {
     COUNT=0
     while [ $COUNT -lt $RETRIES ]; do
       if git push origin "${OSYB_GIT_BRANCH}"; then
-        echo hello
+        echo "git push completed"
         break
       else
-        echo world
+        echo "git push failed"
       fi
       let COUNT=$COUNT+1
       sleep 60
