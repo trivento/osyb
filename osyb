@@ -198,11 +198,17 @@ main() {
   validation
   variables
   gitrepo
-  projects
-  nonnamespaced
+
+  projects &
+  nonnamespaced &
+  wait
+
   falsepositives
-  emptycheck
-  yamlcheck
+
+  emptycheck &
+  yamlcheck &
+  wait
+
   preserve
 }
 
