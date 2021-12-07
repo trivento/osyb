@@ -112,8 +112,8 @@ helper_falsepositives() {
   echo "Removing '${1}' false positives in: '${2}'..."
   if grep -q "${3}" "${2}"; then
     grep -c "${3}" "${2}"
-    echo "yq d -i ${2} ${1}"
-    yq d -i "${2}" "${1}"
+    echo "eval -i \"del(${1})\" \"${2}\""
+    yq eval -i "del(${1})" "${2}"
     echo -e "Done false-positives: ${2}"
   fi
 }
@@ -125,14 +125,19 @@ falsepositives() {
   files=$(find "${OSYB_GIT_REPO}" -name '*.yaml' -type f ! -empty)
 
   for f in $files; do
-    helper_falsepositives "metadata.creationTimestamp" "${f}" "creationTimestamp:"
-    helper_falsepositives "metadata.generation" "${f}" "generation:"
-    helper_falsepositives "metadata.managedFields.[*].time" "${f}" "time:"
-    helper_falsepositives "metadata.resourceVersion" "${f}" "resourceVersion:"
-    helper_falsepositives "metadata.selfLink" "${f}" "selfLink:"
-    helper_falsepositives "metadata.uid" "${f}" "uid:"
-    helper_falsepositives "spec.renewTime" "${f}" "renewTime:"
-    helper_falsepositives "status" "${f}" "status:"
+    helper_falsepositives ".. | select(has(\"time\")).time" "${f}" "time:"
+    helper_falsepositives ".metadata.creationTimestamp" "${f}" "creationTimestamp:"
+    helper_falsepositives ".metadata.generation" "${f}" "generation:"
+    helper_falsepositives ".metadata.resourceVersion" "${f}" "resourceVersion:"
+    helper_falsepositives ".. | select(has(\"resourceVersion\")).resourceVersion" "${f}" "resourceVersion:"
+    helper_falsepositives ".metadata.selfLink" "${f}" "selfLink:"
+    helper_falsepositives ".metadata.uid" "${f}" "uid:"
+    helper_falsepositives ".spec.renewTime" "${f}" "renewTime:"
+    helper_falsepositives ".status" "${f}" "status:"
+
+    if grep -q clusterRoleSelectors "${f}"; then
+      yq eval -i '.aggregationRule.clusterRoleSelectors |= sort_by(.matchLabels | keys| .[0])' ${f}
+    fi
 
     echo "False-positives stage completed for: ${f}"
   done
