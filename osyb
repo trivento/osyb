@@ -8,6 +8,7 @@ echo "PASSWD FILE: $(grep osyb /etc/passwd)"
 echo "GROUP FILE: $(grep osyb /etc/group)"
 echo "OSYB_GIT_REPO: ${OSYB_GIT_REPO}"
 echo "OSYB_GIT_URL: ${OSYB_GIT_URL}"
+echo "OSYB_DEBUG: ${OSYB_DEBUG}"
 echo
 
 validation() {
@@ -80,7 +81,7 @@ gitrepo() {
 nonnamespaced() {
   echo "Backing up all nonnamespaced..."
   for nnr in ${NON_NAMESPACED_RESOURCES}; do
-    echo "Creating '${nnr}' dir if it does not exist..."
+    if [ "${OSYB_DEBUG}" = true ]; then echo "Creating '${nnr}' dir if it does not exist..."; fi
     [ -d "${nnr}" ] || mkdir -p "${nnr}"
     for r in $(resources "${nnr}"); do
       echo -e "---" >"${nnr}/${r}.yaml"
@@ -92,12 +93,12 @@ nonnamespaced() {
 projects() {
   echo -e "\nBacking up all projects..."
   for p in ${PROJECTS}; do
-    echo "Creating 'projects/${p}' dir if it does not exist..."
+    if [ "${OSYB_DEBUG}" = true ]; then echo "Creating 'projects/${p}' dir if it does not exist..."; fi
     [ -d "projects/${p}" ] || mkdir -p "projects/${p}"
     oc project "${p}"
 
     for nr in ${NAMESPACED_RESOURCES}; do
-      echo "Creating 'projects/${p}/${nr}' dir if it does not exist..."
+      if [ "${OSYB_DEBUG}" = true ]; then echo "Creating 'projects/${p}/${nr}' dir if it does not exist..."; fi
       [ -d "projects/${p}/${nr}" ] || mkdir -p "projects/${p}/${nr}"
 
       for r in $(resources "${nr}"); do
@@ -109,12 +110,12 @@ projects() {
 }
 
 helper_falsepositives() {
-  echo "Removing '${1}' false positives in: '${2}'..."
+  if [ "${OSYB_DEBUG}" = true ]; then echo "Removing '${1}' false positives in: '${2}'..."; fi
   if grep -q "${3}" "${2}"; then
     grep -c "${3}" "${2}"
-    echo "eval -i \"del(${1})\" \"${2}\""
+    if [ "${OSYB_DEBUG}" = true ]; then echo "eval -i \"del(${1})\" \"${2}\""; fi
     yq eval -i "del(${1})" "${2}"
-    echo -e "Done false-positives: ${2}"
+    if [ "${OSYB_DEBUG}" = true ]; then echo -e "Done false-positives: ${2}"; fi
   fi
 }
 
@@ -139,7 +140,7 @@ falsepositives() {
       yq eval -i '.aggregationRule.clusterRoleSelectors |= sort_by(.matchLabels | keys| .[0])' ${f}
     fi
 
-    echo "False-positives stage completed for: ${f}"
+    if [ "${OSYB_DEBUG}" = true ]; then echo "False-positives stage completed for: ${f}"; fi
   done
 }
 
