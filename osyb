@@ -112,7 +112,7 @@ projects() {
 helper_falsepositives() {
   if [ "${OSYB_DEBUG}" = true ]; then echo "Removing '${1}' false positives in: '${2}'..."; fi
   if grep -q "${3}" "${2}"; then
-    grep -c "${3}" "${2}"
+    if [ "${OSYB_DEBUG}" = true ]; then grep -c "${3}" "${2}"; fi
     if [ "${OSYB_DEBUG}" = true ]; then echo "eval -i \"del(${1})\" \"${2}\""; fi
     yq eval -i "del(${1})" "${2}"
     if [ "${OSYB_DEBUG}" = true ]; then echo -e "Done false-positives: ${2}"; fi
