@@ -1,4 +1,4 @@
-# osyb
+# OSYB
 
 OpenShift YAML Backup (OSYB) is based on [kube-backup][1]. Differences:
 
