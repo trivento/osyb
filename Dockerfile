@@ -21,7 +21,7 @@ RUN echo "Downloading ${OC_URL}" && \
     chmod +x oc yq user.sh && \
     ./user.sh
 
-FROM alpine:3.15.0
+FROM alpine:3.15.1
 ENV BIN=/usr/local/bin/
 ENV USERNAME=osyb
 ENV BASE=/opt/${USERNAME}
