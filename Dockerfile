@@ -1,6 +1,6 @@
-FROM curlimages/curl:7.82.0 as downloader
-ENV OC_VERSION 4.8.27
-ENV OC_SHA256 a88f6e70fdbb2fb152c26eb64fb9336c1ac8abcef4b9b82dcc76272bbe1e424b
+FROM curlimages/curl:7.83.1 as downloader
+ENV OC_VERSION 4.10.17
+ENV OC_SHA256 92c98fce2b3658db0584849b818cf9ca3509ff645da94e87527a6841e591e4af
 ENV OC_URL "https://mirror.openshift.com/pub/openshift-v4/clients/ocp/${OC_VERSION}/openshift-client-linux-${OC_VERSION}.tar.gz"
 ENV YQ_VERSION 4.16.2
 ENV YQ_SHA512 b6705fe25f781f618e34f28ba57b2fbe14e836193fbc17820a9cdfa37245267ed98a21005f37d7c158db5622c2c5f552b96c2966b5802ab1a5c13cc968f54e21
@@ -21,7 +21,7 @@ RUN echo "Downloading ${OC_URL}" && \
     chmod +x oc yq user.sh && \
     ./user.sh
 
-FROM alpine:3.15.1
+FROM alpine:3.16.0
 ENV BIN=/usr/local/bin/
 ENV USERNAME=osyb
 ENV BASE=/opt/${USERNAME}
