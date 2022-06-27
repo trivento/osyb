@@ -21,6 +21,35 @@ RUN echo "Downloading ${OC_URL}" && \
     chmod +x oc yq user.sh && \
     ./user.sh
 
+# build from source because apk git-secret repo is dead
+# https://github.com/sobolevn/git-secret/issues/878#issuecomment-1166263653
+FROM alpine:3.16.0 as git-secret-builder
+RUN apk add --no-cache --update \
+    # fpm deps:
+    ruby \
+    ruby-dev \
+    ruby-etc \
+    gcc \
+    libffi-dev \
+    make \
+    libc-dev \
+    rpm \
+    tar \
+    # Direct dependencies:
+    bash \
+    gawk \
+    git \
+    gnupg \
+    # Assumed to be present:
+    curl \
+    # envsubst for `nfpm`:
+    gettext && \
+    git clone -b v0.5.0 https://github.com/sobolevn/git-secret.git git-secret && \
+    cd git-secret && \
+    make build && \
+    make install && \
+    /usr/bin/git-secret --version
+
 FROM alpine:3.16.0
 ENV BIN=/usr/local/bin/
 ENV USERNAME=osyb
@@ -30,13 +59,11 @@ ENV PATH=${BASE_BIN}:${PATH}
 COPY --from=downloader /tmp/oc /tmp/yq $BIN
 COPY --from=downloader /etc/passwd /etc/passwd
 COPY --from=downloader /opt/ /opt/
+COPY --from=git-secret-builder /usr/bin/git-secret /usr/local/bin/git-secret
 RUN apk add --update --no-cache \
     curl && \
     ls -ltr /opt | grep $USERNAME | grep "\-\-\-rwx\-\-\-" && \
     ls /opt | wc -l | grep "^1$" && \
-    # https://git-secret.io/installation
-    sh -c "echo 'https://gitsecret.jfrog.io/artifactory/git-secret-apk/all/main'" >> /etc/apk/repositories && \
-    curl 'https://gitsecret.jfrog.io/artifactory/api/security/keypair/public/repositories/git-secret-apk' > /etc/apk/keys/git-secret-apk.rsa.pub && \
     apk add --update --no-cache \
     # libc6-compat is required by oc in order to start:
     # * sh: oc: not found
@@ -46,7 +73,8 @@ RUN apk add --update --no-cache \
     git \
     openssh \
     py-pip \
-    git-secret && \
+    gawk \
+    gpg && \
     git-secret --version && \
     pip3 install --upgrade --no-cache-dir \
     pip \
