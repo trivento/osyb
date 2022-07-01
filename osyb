@@ -128,7 +128,6 @@ falsepositives() {
   for f in $files; do
     helper_falsepositives ".. | select(has(\"time\")).time" "${f}" "time:"
     helper_falsepositives ".metadata.creationTimestamp" "${f}" "creationTimestamp:"
-    helper_falsepositives ".metadata.managedFields" "${f}" "managedFields:"
     helper_falsepositives ".metadata.generation" "${f}" "generation:"
     helper_falsepositives ".metadata.resourceVersion" "${f}" "resourceVersion:"
     helper_falsepositives ".. | select(has(\"resourceVersion\")).resourceVersion" "${f}" "resourceVersion:"
@@ -137,7 +136,7 @@ falsepositives() {
     helper_falsepositives ".spec.renewTime" "${f}" "renewTime:"
     helper_falsepositives ".status" "${f}" "status:"
 
-    if grep -q clusterRoleSelectors "${f}"; then
+    if yq -e 'has(.aggregationRule' "${f}" >/dev/null 2>&1; then
       yq eval -i '.aggregationRule.clusterRoleSelectors |= sort_by(.matchLabels | keys| .[0])' ${f}
     fi
 
