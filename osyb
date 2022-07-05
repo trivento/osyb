@@ -136,7 +136,7 @@ falsepositives() {
     helper_falsepositives ".spec.renewTime" "${f}" "renewTime:"
     helper_falsepositives ".status" "${f}" "status:"
 
-    if grep -q clusterRoleSelectors "${f}"; then
+    if yq -e 'has(.aggregationRule' "${f}" >/dev/null 2>&1; then
       yq eval -i '.aggregationRule.clusterRoleSelectors |= sort_by(.matchLabels | keys| .[0])' ${f}
     fi
 
