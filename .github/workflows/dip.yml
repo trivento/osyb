@@ -1,17 +1,32 @@
 ---
 name: "DIP"
-on: [push]
+'on':
+  schedule:
+    - cron: '17 13 7 * *'
 jobs:
-  dive:
+  dip:
     runs-on: ubuntu-latest
     name: Check whether images are up-to-date
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
-      # yamllint disable rule:line-length
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.WORKFLOW_TOKEN }}      # yamllint disable rule:line-length
       - name: Download DIP
-        run: curl -L https://github.com/030/dip/releases/download/4.0.2/dip-ubuntu-20.04 -o dip && chmod +x dip
+        run: curl -L https://github.com/030/dip/releases/download/4.1.0/dip-ubuntu-20.04 -o dip && chmod +x dip
       - name: Check Alpine
-        run: ./dip image --name=alpine --regex=^3\.[0-9]+\.[0-9]+$ --dockerfile
+        run: ./dip image --name=alpine --regex=^3\.[0-9]+\.[0-9]+$ --updateDockerfile
       - name: Check Curl
-        run: ./dip image --name=curlimages/curl --regex=^7\.[0-9]+\.[0-9]+$ --dockerfile
+        run: ./dip image --name=curlimages/curl --regex=^7\.[0-9]+\.[0-9]+$ --updateDockerfile
+      - uses: EndBug/add-and-commit@v9
+        with:
+          author_name: github-actions[bot]
+          author_email: 41898282+github-actions[bot]@users.noreply.github.com
+          message: 'build(deps): Update syntax.'
+          new_branch: dependencies-updater-bot
+      - name: create pull request
+        run: |
+          gh pr create --assignee andremeeuwesen --base main --head dependencies-updater-bot --title 'Update syntax' --body 'Created by Github action' --reviewer 030,andremeeuwesen,rvanbutselaar,srvreeswijk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
