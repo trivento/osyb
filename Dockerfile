@@ -1,6 +1,6 @@
-FROM curlimages/curl:7.85.0 as downloader
-ENV OC_VERSION 4.10.17
-ENV OC_SHA256 92c98fce2b3658db0584849b818cf9ca3509ff645da94e87527a6841e591e4af
+FROM curlimages/curl:8.6.0 as downloader
+ENV OC_VERSION 4.12.53
+ENV OC_SHA256 9dc4c3d130bd00a1616b14cbfbea80937c80f58efa0dbd4257d136a8b897d34a
 ENV OC_URL "https://mirror.openshift.com/pub/openshift-v4/clients/ocp/${OC_VERSION}/openshift-client-linux-${OC_VERSION}.tar.gz"
 ENV YQ_VERSION 4.25.3
 ENV YQ_SHA512 115f450be3ba3be322098efa86223d5194361d66bce5d9d4caa80f0929cde35bfc5a3ec67dd786a7f58d276d691e6af1f3b3779babaf052d9e6444616d0258e3
@@ -23,7 +23,7 @@ RUN echo "Downloading ${OC_URL}" && \
 
 # build from source because apk git-secret repo is dead
 # https://github.com/sobolevn/git-secret/issues/878#issuecomment-1166263653
-FROM alpine:3.16.2 as git-secret-builder
+FROM alpine:3.16.9 as git-secret-builder
 RUN apk add --no-cache --update \
     # fpm deps:
     ruby \
@@ -50,7 +50,7 @@ RUN apk add --no-cache --update \
     make install && \
     /usr/bin/git-secret --version
 
-FROM alpine:3.16.2
+FROM alpine:3.16.9
 ENV BIN=/usr/local/bin/
 ENV USERNAME=osyb
 ENV BASE=/opt/${USERNAME}
